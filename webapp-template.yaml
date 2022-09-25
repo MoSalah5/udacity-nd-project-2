@@ -250,7 +250,7 @@ Resources:
           apt-get install apache2 -y
           systemctl start apache2.service
           cd /var/www/html
-          echo "Udgram dummy app is running" > index.html
+          echo "it works! Udagram, Udacity" > index.html
       ImageId: ami-08c40ec9ead489470
       KeyName: private_access_key  # you will need to create this key and use it to connect to private hosted servers from a jumpbox 
       SecurityGroups: [!Ref WebServerSG]
