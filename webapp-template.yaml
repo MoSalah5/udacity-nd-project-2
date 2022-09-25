@@ -1,0 +1,316 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template deploys Apache Tomcat webserver.
+Parameters:
+  VPCCidrBlock:
+    Type: String
+    Description: CIDR block range for main VPC
+
+  PublicSubnet1Cidr:
+    Type: String
+    Description: CIDR block range for public subnet 1
+
+  PublicSubnet2Cidr:
+    Type: String
+    Description: CIDR block range for public subnet 2
+
+  PrivateSubnet1Cidr:
+    Type: String
+    Description: CIDR block range for public subnet 1
+
+  PrivateSubnet2Cidr:
+    Type: String
+    Description: CIDR block range for public subnet 2
+
+Resources:
+# Networking resources.
+  MainVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPCCidrBlock
+      Tags:
+        - Key: Name
+          Value: Udagram_VPC
+
+  IGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Udagram_IGW
+
+  IGWAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref MainVPC
+
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Udagram_Public_subnet_1
+
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Udagram_Public_subnet_2
+
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Udagram_Private_subnet_1
+
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Udagram_Private_subnet_2
+
+  EIP1:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: "IGWAttachment"
+    Properties:
+      Domain: MainVPC
+      Tags:
+        - Key: Name
+          Value: Udagram_EIP_1
+
+  EIP2:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: "IGWAttachment"
+    Properties:
+      Domain: MainVPC
+      Tags:
+        - Key: Name
+          Value: Udagram_EIP_2
+  
+  NatGateway1:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      AllocationId: !GetAtt EIP1.AllocationId
+      Tags:
+        - Key: Name
+          Value: Udagram_Public_NatGateWay_1
+
+  NatGateway2:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      AllocationId: !GetAtt EIP2.AllocationId
+      Tags:
+        - Key: Name
+          Value: Udagram_Public_NatGateWay_2
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    DependsOn: "IGWAttachment"
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: Udagram_Public_Route_table
+
+  DefaultPublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  AssociatePublicRoute1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  AssociatePublicRoute2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: Udagram_Private_Route_table_1
+
+  PrivateRouteTable2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: Udagram_Private_Route_table_2
+
+  PrivateRoutes1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateRoutes2:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  AssociatePrivateRoute1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  AssociatePrivateRoute2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+# Creating servers and infra for Udagram application
+  WebServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts on port 8080 and SSH from local only
+      VpcId: !Ref MainVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+
+  LoadBalancerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts
+      VpcId: !Ref MainVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+
+  WebAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+            #!/bin/bash
+            # Install docker
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+            add-apt-repository \
+            "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) \
+            stable"
+            apt-get update
+            apt-get install -y docker-ce
+            usermod -aG docker ubuntu
+            docker run -p 8080:8080 tomcat:8.0
+      ImageId: ami-08c40ec9ead489470
+      KeyName: private_access_key  # you will need to create this key and use it to connect to private hosted servers from a jumpbox 
+      SecurityGroups: [!Ref WebServerSecGroup]
+      InstanceType: c5.large
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sdk"
+        Ebs:
+          VolumeSize: 10
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 8080
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref MainVPC
+
+  WebAppASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      LaunchConfigurationName: !Ref WebAppLaunchConfig
+      MinSize: 4
+      MaxSize: 8
+      TargetGroupARNs: [!Ref WebAppTargetGroup]
+      HealthCheckGracePeriod: 60
+      HealthCheckType: ELB
+
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets: 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups: [!Ref LoadBalancerSG]
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref WebAppTargetGroup
+      LoadBalancerArn: !Ref WebAppLB
+      Port: 80
+      Protocol: HTTP
+
+  ALBListenerRule:
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+      Properties:
+        Actions:
+        - Type: forward
+          TargetGroupArn: !Ref 'WebAppTargetGroup'
+        Conditions:
+        - Field: path-pattern
+          Values: [/]
+        ListenerArn: !Ref 'Listener'
+        Priority: 1
