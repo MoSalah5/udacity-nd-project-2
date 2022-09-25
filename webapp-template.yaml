@@ -254,7 +254,7 @@ Resources:
       ImageId: ami-08c40ec9ead489470
       KeyName: private_access_key  # you will need to create this key and use it to connect to private hosted servers from a jumpbox 
       SecurityGroups: [!Ref WebServerSG]
-      InstanceType: t2.medium
+      InstanceType: t3.medium
       # IamInstanceProfile: !Ref InstanceProfile
       BlockDeviceMappings:
       - DeviceName: "/dev/sdk"
